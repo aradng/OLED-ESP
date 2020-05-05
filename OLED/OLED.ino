@@ -24,9 +24,10 @@ Adafruit_SSD1306 display(-1);
 const int HWver = 191220;                      //Hardware version compared with a sub value
 String clientId = String(ESP.getChipId());
 int failcount;
-const char *mqtt_server = "arad-pc.local";       //MQTT server address
-const char *local_server = "arad-pc.local";
-bool pingOn = 0,done = 1,weatherOn = 0;
+const char *mqtt_server = "192.168.1.3";
+const char *local_server = "arad-pc.local";      //MQTT server address(add A/CNAME in hosts + ipconfig /flushdns
+String cpuv , gput , cput , cpul , gpul , gpun , cpun , ram;
+bool pingOn = 0,done = 1,weatherOn = 0,hwmon = 0,rst = 0,drawOn = 0;
 
 DHT12 dht12;
 WiFiManager wifiManager;
@@ -34,10 +35,34 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 Pinger pinger;
 
+String conv(byte* s , int l)
+{
+  String ret;
+  for(int i = 0 ; i < l ; i++)
+    ret += char(s[i]);
+  return ret;
+}
 void callback(char* topic, byte* payload, unsigned int length)
 {
   String T = topic;
-  if(T == "display/text")
+  if(T == "CPU/Voltage")
+    cpuv = conv(payload,length);
+  else if(T == "CPU/Temperature")
+    cput = conv(payload,length);
+  else if(T == "GPU/Temperature")
+    gput = conv(payload,length);
+  else if(T == "GPU/Load")
+    gpul = conv(payload,length);
+  else if(T == "CPU/Load")
+    cpul = conv(payload,length);
+  else if(T == "Memory/Load")
+    ram = conv(payload,length);
+  else if(T == "CPU/Name")
+    cpun = conv(payload,length);
+  else if(T == "GPU/Name")
+    gpun = conv(payload,length);
+  
+  else if(T == "display/text")
   {
     display.setTextSize((char)payload[0] - '0');
     display.setCursor(0,0);
@@ -57,6 +82,18 @@ void callback(char* topic, byte* payload, unsigned int length)
       pingOn = !pingOn;
       client.publish("ack", "ping");
     }
+    else if((char)payload[0] == '3')
+    {
+      hwmon = !hwmon;
+      client.publish("ack", "hwmode");
+    }
+    else if((char)payload[0] == '4')
+    {
+      drawOn = !drawOn;
+      client.publish("ack", "displaymode");
+    }
+    else if((char)payload[0] == '5')
+      ESP.restart();
   }
   else if(T == "display/bitmap")
   {
@@ -77,7 +114,7 @@ void callback(char* topic, byte* payload, unsigned int length)
     if(HWver < hw)
     {
       WiFiClient netClient;
-      ESPhttpUpdate.update(netClient, "http://oled.aradng.tk/OLED/OLED.ino.generic.bin");
+      ESPhttpUpdate.update(netClient, "http://oled.aradng.ml/OLED/OLED.ino.generic.bin");
     }
   }
 }
@@ -97,6 +134,7 @@ void update_progress(int cur, int total) {
 
 void update_finished() {
     display.clearDisplay();
+    display.setTextSize(1);
     display.setCursor(11,12);
     display.print("RESTART");
     display.display();
@@ -118,7 +156,7 @@ void setup()
   display.setCursor(2,10);
   display.print("Connecting");
   display.display();
-  wifiManager.setDebugOutput(false);
+  wifiManager.setTimeout(180);
   wifiManager.autoConnect("SmartConfig");
   ArduinoOTA.begin();
   display.clearDisplay();
@@ -175,14 +213,19 @@ void reconnect()
       client.subscribe("display/text");
       client.subscribe("display/state");
       client.subscribe("display/bitmap");
+      client.subscribe("CPU/Voltage");
+      client.subscribe("CPU/Temperature");
+      client.subscribe("GPU/Temperature");
       client.subscribe("update");
       client.publish("ack", msg.c_str());
     }
     else 
     { 
       failcount++;
-      if(failcount == 2)
+      if(failcount % 2)
         client.setServer(local_server, 1883);
+      else 
+        client.setServer(mqtt_server,1883);
       display.setTextColor(BLACK);
       display.setCursor(40,23);
       display.print('+');
@@ -194,20 +237,41 @@ void reconnect()
   }
 }
 long long int mil = 0;
+int i = 0;
 void loop() {
   ArduinoOTA.handle();
-  if(!client.connected() && WiFi.status() == WL_CONNECTED)
-    reconnect();
   if(WiFi.status() != WL_CONNECTED)
     ESP.restart();
-  client.loop();
   if(done & pingOn)
   {
     done = false;
     pinger.Ping("lux.valve.net",1);
   }
+  if(drawOn)
+  {
+    i++;
+    for(int j = 0 ; j < 64; j++)
+      for(int k = 0 ; k < 32 ; k++)
+        display.drawPixel(j,k,((j+i)/16+k/16)%2);
+    display.display();
+    //delay(50);      too slow for long gets burnout and massive current makes lcd logic unstable
+    if(i >= 16 * 2)
+      i = 0;
+  }
+  if(hwmon && (millis() - mil) >= 500)
+  {
+    mil = millis();
+    hwmonitor();
+  }
+  if(!client.connected() && WiFi.status() == WL_CONNECTED)
+    reconnect();
+  client.loop();
 }
 
+void hwmonitor()
+{
+  
+}
 void drawProgressbar(int x,int y, int width,int height, int progress)
 {
    progress = progress > 100 ? 100 : progress;
