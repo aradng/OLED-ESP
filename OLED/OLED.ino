@@ -268,10 +268,6 @@ void loop() {
   client.loop();
 }
 
-void hwmonitor()
-{
-  
-}
 void drawProgressbar(int x,int y, int width,int height, int progress)
 {
    progress = progress > 100 ? 100 : progress;
