@@ -69,4 +69,4 @@ if __name__ == "__main__":
     HardwareHandle = initialize_openhardwaremonitor()
     while(True) :
         fetch_stats(HardwareHandle)
-        time.sleep(0.3);
+        time.sleep(0.5);
