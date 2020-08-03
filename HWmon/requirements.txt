@@ -1,0 +1,4 @@
+jsonpickle>=1.4.1
+coapthon3>=1.0.1
+zeroconf>=0.28.0
+pythonnet>=2.5.1
