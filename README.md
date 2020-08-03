@@ -1,5 +1,5 @@
 # OLED-ESP
-Wireless Hardware Monitor Display with CoAP and MDNS autofinder
+Wireless Hardware Monitor Display with CoAP and mDNS autofinder
 ![Image of OLED-ESP](imgs/renderings.png)
 # Setting Up
   * MQTT broker(mosquitto)
