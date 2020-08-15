@@ -1,0 +1,83 @@
+#include <ArduinoJson.h>
+#include "coap_client.h"
+#include <ESP8266mDNS.h>
+#include <WiFiManager.h>
+#include <ArduinoOTA.h>
+#include "SH1106Wire.h"
+
+SH1106Wire display(0x3c, D4, D3);    //d1 d2
+
+const size_t capacity = JSON_OBJECT_SIZE(1) + 4*JSON_OBJECT_SIZE(3) + 250;
+DynamicJsonDocument doc(capacity);
+
+String inputString;
+
+void setup()                                                                    ///setup
+{
+  inputString.reserve(300);
+  Serial.begin(115200);
+  pinMode(D2 , OUTPUT);
+  pinMode(D1 , OUTPUT);
+  digitalWrite(D2 , HIGH);
+  digitalWrite(D1 , LOW);
+  delay(5);
+  display.init();
+  display.clear();
+  display.setColor(WHITE);
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
+  display.drawString(display.getWidth() / 2, display.getHeight() / 2, "Connecting");
+  display.display();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+}
+
+void loop() {
+  while(Serial.available()) 
+  {
+    char inChar = (char)Serial.read();
+    inputString += inChar;
+    if (inChar == '\n')
+    {
+      Serial.print("ack");
+      print(inputString);
+      inputString = "";
+    }
+  }
+}
+
+void print(String payload)
+{
+      deserializeJson(doc, payload);
+      int    bigmode  = doc["bigmode"];
+      String gpu_name = doc["gpu_name"];
+      String gpu_load = doc["gpu_load"];
+      String gpu_temp = doc["gpu_temp"];
+      String cpu_name = doc["cpu_name"];
+      String cpu_load = doc["cpu_load"];
+      String cpu_temp = doc["cpu_temp"];
+      String mem_load = doc["mem_load"];
+      
+      display.clear();
+      display.setFont(ArialMT_Plain_16);
+      display.drawString(1, 11 , "CPU");
+      display.drawString(1, 37 , "GPU");
+      if(bigmode) display.setFont(ArialMT_Plain_24);
+      display.drawString(42, 11 , cpu_temp);
+      display.drawString(90, 11 , cpu_load);
+      display.drawString(42, 37 , gpu_temp);
+      display.drawString(90, 37 , gpu_load);
+      display.setFont(ArialMT_Plain_10);
+      if(!bigmode)
+      {
+        display.drawString(1 , 52 , "SYSRAM");
+        display.drawString(56, 52 , mem_load);
+        display.drawString(0 , 0  , cpu_name);
+        display.drawString(0 , 26 , gpu_name);
+        display.drawString(80, 52 , "GB");
+      }
+      display.drawString(72, 12 , "°C");
+      display.drawString(72, 38 , "°C");
+      display.drawString(120, 12 , "%");
+      display.drawString(120, 38 , "%");
+      display.display();
+}

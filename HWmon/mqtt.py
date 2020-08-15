@@ -1,8 +1,10 @@
 import os
 import clr #package pythonnet, not clr
-import paho.mqtt.client as mqtt
+import json
 import time 
-
+import socket
+import paho.mqtt.client as mqtt
+from zeroconf import IPVersion, ServiceInfo, Zeroconf
 
 client = mqtt.Client();
 client.connect("localhost");
@@ -11,12 +13,29 @@ openhardwaremonitor_hwtypes = ['Mainboard','SuperIO','CPU','RAM','GpuNvidia','Gp
 openhardwaremonitor_sensortypes = ['Voltage','Clock','Temperature','Load','Fan','Flow','Control','Level','Factor','Power','Data','SmallData']
 
 
+data = {
+    "bigmode"  : 0 ,
+    "gpu_name" : "",
+    "gpu_load" : 0 ,
+    "gpu_temp" : 0 ,
+    "cpu_name" : "",
+    "cpu_load" : 0 ,
+    "cpu_temp" : 0 ,
+    "mem_load" : 0 ,
+}
+
+#py2exe dogshit
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+#hwmonitor init
 def initialize_openhardwaremonitor():
-    file = (os.path.dirname(os.path.realpath(__file__)) + "/OpenHardwareMonitorLib.dll");
-    clr.AddReference(file)
-
+    clr.AddReference(resource_path('OpenHardwareMonitorLib.dll'))
     from OpenHardwareMonitor import Hardware
-
     handle = Hardware.Computer()
     handle.CPUEnabled = True
     handle.RAMEnabled = True
@@ -43,30 +62,45 @@ def parse_sensor(sensor):
             return
         if sensor.SensorType == sensortypes.index('Temperature') :
             if sensor.Name == "GPU Core" :
-                client.publish("GPU/Temperature" , int(sensor.Value));
-                client.publish("GPU/Name" , sensor.Hardware.Name);
-                #print(sensor.Name)
-                #print(int(sensor.Value))
+                data['gpu_temp'] = int(sensor.Value)
+                data['gpu_name'] = sensor.Hardware.Name
             if sensor.Name == "CPU Package" :
-                client.publish("CPU/Temperature" , int(sensor.Value));
-                client.publish("CPU/Name" , sensor.Hardware.Name);
+                data['cpu_temp'] = int(sensor.Value)
+                data['cpu_name'] = sensor.Hardware.Name
         if sensor.SensorType == sensortypes.index('Load') :
             if(sensor.Name == "CPU Total") :
-                client.publish("CPU/Load" , int(sensor.Value));
-                #printsensor(sensor.Name)
-                #print(int(sensor.Value))
+                data['cpu_load'] = int(sensor.Value)
             if(sensor.Name == "GPU Core") :
-                client.publish("GPU/Load" , int(sensor.Value));
-                #print(sensor.Name)
-                #print(int(sensor.Value))
+                data['gpu_load'] = int(sensor.Value)
         if sensor.Name == "Used Memory" :
-            client.publish("Mem/Load" , format(sensor.Value ,'.1f'));
-            #print(sensor.Name)
-            #print(format(sensor.Value ,'.1f'))
+            data['mem_load'] = format(sensor.Value ,'.1f')
 
-if __name__ == "__main__":
-    print("OpenHardwareMonitor:")
-    HardwareHandle = initialize_openhardwaremonitor()
-    while(True) :
-        fetch_stats(HardwareHandle)
-        time.sleep(0.5);
+#MDNS Zerconf config
+info = ServiceInfo(
+    "_mqtt._tcp.local.",
+    "hwmon._mqtt._tcp.local.",
+    addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))],
+    port=1883,
+    server="hwmon.local.",
+)
+zeroconf = Zeroconf(ip_version=IPVersion.All)
+
+HardwareHandle = initialize_openhardwaremonitor()
+while True:
+    try :
+        zeroconf.unregister_service(info)
+        zeroconf.close()
+        zeroconf = Zeroconf(ip_version=IPVersion.All)
+        info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
+        zeroconf.register_service(info)
+    except :
+        pass
+    while(info.addresses == [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]) :
+        try :
+            fetch_stats(HardwareHandle)
+            client.publish("display/hwmon" ,json.dumps(data));
+            time.sleep(0.2);
+        except KeyboardInterrupt:
+            zeroconf.unregister_service(info)
+            zeroconf.close()
+            exit()

@@ -1,0 +1,182 @@
+#include <PubSubClient.h>
+#include <WiFiManager.h>
+#include <ArduinoOTA.h>
+#include <ESP8266httpUpdate.h>
+#include <ArduinoJson.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WiFi.h>
+#include "SH1106Wire.h"
+
+SH1106Wire display(0x3c, D4, D3);    //d1 d2
+
+WiFiManager wifiManager;
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+const int HWver = 200814;                                             //Hardware version compared with a sub value
+String clientId = String(ESP.getChipId());
+
+const size_t capacity = JSON_OBJECT_SIZE(8) + 250;
+DynamicJsonDocument doc(capacity);
+
+void print(String payload)
+{
+  deserializeJson(doc, payload);
+  int    bigmode  = doc["bigmode"];
+  String gpu_name = doc["gpu_name"];
+  String gpu_load = doc["gpu_load"];
+  String gpu_temp = doc["gpu_temp"];
+  String cpu_name = doc["cpu_name"];
+  String cpu_load = doc["cpu_load"];
+  String cpu_temp = doc["cpu_temp"];
+  String mem_load = doc["mem_load"];
+  
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_16);
+  display.drawString(1, 11 , "CPU");
+  display.drawString(1, 37 , "GPU");
+  if(bigmode) display.setFont(ArialMT_Plain_24);
+  display.drawString(42, 11 , cpu_temp);
+  display.drawString(90, 11 , cpu_load);
+  display.drawString(42, 37 , gpu_temp);
+  display.drawString(90, 37 , gpu_load);
+  display.setFont(ArialMT_Plain_10);
+  if(!bigmode)
+  {
+    display.drawString(1 , 52 , "SYSRAM");
+    display.drawString(56, 52 , mem_load);
+    display.drawString(0 , 0  , cpu_name);
+    display.drawString(0 , 26 , gpu_name);
+    display.drawString(80, 52 , "GB");
+  }
+  display.drawString(72, 12 , "°C");
+  display.drawString(72, 38 , "°C");
+  display.drawString(120, 12 , "%");
+  display.drawString(120, 38 , "%");
+  display.display();
+}
+
+String conv(byte* s , int l)                                          //convert payload to string
+{
+  String ret;
+  for (int i = 0 ; i < l ; i++)
+    ret += char(s[i]);
+  return ret;
+}
+
+void callback(char* topic, byte* payload, unsigned int length)        //pubusb callback
+{
+  String T = topic;
+  if(T == "display/hwmon")
+    print(conv(payload , length));
+
+  else if(T == "display/config" && payload[0] == '1')
+  {
+    display.clear();
+    display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(display.getWidth() / 2, display.getHeight() / 2, "Config Portal");
+    display.display();
+    wifiManager.resetSettings();
+    wifiManager.autoConnect("OLED Display");
+  }
+  
+  else if (T == "update")                                           //update
+  {
+    int hw = 0, pow = 100000;
+    for (int i = 0 ; i < 6 ; i++)
+    {
+      hw += (payload[i] - '0') * pow;
+      pow /= 10;
+    }
+    if (HWver < hw)
+    {
+      WiFiClient localClient;
+      ESPhttpUpdate.update(localClient, "http://192.168.1.3:8080/Arad/OLED-ESP/OLED_128/OLED_128.ino.generic.bin");
+      WiFiClient netClient;
+      ESPhttpUpdate.update(netClient, "http://oled.aradng.ml/OLED_128/OLED_128.ino.generic.bin");
+    }
+  }
+}
+
+void reconnect()
+{
+  display.clear();
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
+  display.drawString(display.getWidth() / 2 ,display.getHeight() / 2 , "Searching");
+  display.display();
+  if(client.connect(String(random(0xffff), HEX).c_str() , "display/online" , 2 , true, "0"))
+  {
+    display.clear();
+    display.drawString(display.getWidth() / 2 , display.getHeight() / 2 , "Ready!");
+    display.display();
+    client.subscribe("display/config");
+    client.subscribe("display/hwmon");
+    client.subscribe("update");
+    client.publish("display/online", "1" , true);
+  }
+  else if(MDNS.queryService("mqtt", "tcp") > 0)
+    client.setServer(MDNS.IP(0), MDNS.port(0));
+}
+
+void update_started() {
+  display.clear();
+  display.drawString(display.getWidth() / 2, display.getHeight() / 2 - 20, "OTA Update");
+  display.display();
+}
+
+void update_progress(int progress, int total) {
+  display.drawProgressBar(4, 32, 120, 12, progress / (total / 100) );
+  display.display();
+}
+
+void update_finished() {
+  display.clear();
+  display.drawString(display.getWidth() / 2, display.getHeight() / 2, "Restart");
+  display.display();
+}
+
+void setup() {
+  ESPhttpUpdate.onStart(update_started);
+  ESPhttpUpdate.onProgress(update_progress);
+  ESPhttpUpdate.onEnd(update_finished);
+  ArduinoOTA.onStart(update_started);
+  ArduinoOTA.onProgress(update_progress);
+  ArduinoOTA.onEnd(update_finished);
+
+  pinMode(D2 , OUTPUT);
+  pinMode(D1 , OUTPUT);
+  digitalWrite(D2 , HIGH);
+  digitalWrite(D1 , LOW);
+  delay(5);
+  display.init();
+  display.clear();
+  display.setColor(WHITE);
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
+  display.drawString(display.getWidth() / 2, display.getHeight() / 2, "Connecting");
+  display.display();
+  
+  WiFi.hostname("OLED Display");
+  wifiManager.setTimeout(180);
+  wifiManager.autoConnect("OLED Display");
+  ArduinoOTA.setHostname("OLED Display");
+  ArduinoOTA.begin();
+  MDNS.begin("OLED Display");
+  
+  client.setCallback(callback);
+  client.setKeepAlive(5);
+  client.setSocketTimeout(1);
+}
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED)                                            //restart
+    ESP.restart();
+  MDNS.update();
+  if (!client.connected() && WiFi.status() == WL_CONNECTED)                     //reconnect/connect mqtt
+    reconnect();
+  client.loop();
+  ArduinoOTA.handle();
+}
