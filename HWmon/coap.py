@@ -92,13 +92,13 @@ def mDNS():
 		port=5683,
 		server="hwmon.local.",
 	)
-	zeroconf = Zeroconf(ip_version=IPVersion.All)
+	zeroconf = Zeroconf(ip_version= IPVersion.V4Only)
 	while (stop_threads == False):
 		try :
 			zeroconf.unregister_service(info)
 			zeroconf.close()
 			zeroconf.close()
-			zeroconf = Zeroconf(ip_version=IPVersion.All)
+			zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
 			info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
 			zeroconf.register_service(info)
 		except :
