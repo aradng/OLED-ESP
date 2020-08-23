@@ -9,7 +9,7 @@ Wireless Hardware Monitor Display with CoAP and mDNS autofinder
 pip3 install -r requirements.txt 
 ```
 
-  * Run HWmon (you can setup as a service/scheduler task)
+  * Run HWmon (you can setup as a service/scheduler task) or use precompiled executables
 ```sh
 pythonw hwmon.py
 ```
