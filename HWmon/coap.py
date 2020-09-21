@@ -9,7 +9,7 @@ import threading
 from PySide2 import QtWidgets, QtGui
 from coapthon.server.coap import CoAP
 from coapthon.resources.resource import Resource
-from zeroconf import IPVersion, ServiceInfo, Zeroconf
+from zeroconf import IPVersion, ServiceInfo, Zeroconf,InterfaceChoice
 
 #disable logging
 #logging.config.fileConfig("logging.conf", disable_existing_loggers=True)
@@ -88,24 +88,22 @@ def mDNS():
 	info = ServiceInfo(
 		"_coap._udp.local.",
 		"hwmon._coap._udp.local.",
-		addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))],
+		addresses=[socket.inet_aton("0.0.0.0")],
 		port=5683,
 		server="hwmon.local.",
+		host_ttl=0,
+		other_ttl=0,
 	)
-	zeroconf = Zeroconf(ip_version= IPVersion.V4Only)
+	zeroconf = Zeroconf(InterfaceChoice.All , ip_version = IPVersion.V4Only)
 	while (stop_threads == False):
 		try :
-			zeroconf.unregister_service(info)
-			zeroconf.close()
-			zeroconf.close()
-			zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
-			info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
-			zeroconf.register_service(info)
+			if(info.addresses != [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]):
+				zeroconf.unregister_service(info)
+				info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
+				zeroconf.register_service(info)
+			time.sleep(1)
 		except :
 			pass
-		while(info.addresses == [socket.inet_aton(socket.gethostbyname(socket.gethostname()))] and stop_threads == False):
-			time.sleep(1)
-	zeroconf.unregister_service(info)
 	zeroconf.close()
 
 HardwareHandle = initialize_openhardwaremonitor()
@@ -154,7 +152,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
 		threadcoap.start()
 		threadmdns.start()
-
 	def stopthreads(self):
 		global stop_threads
 		stop_threads = True
