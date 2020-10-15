@@ -91,19 +91,19 @@ def mDNS():
 		addresses=[socket.inet_aton("0.0.0.0")],
 		port=5683,
 		server="hwmon.local.",
-		host_ttl=0,
-		other_ttl=0,
+		#host_ttl=0,
+		#other_ttl=0,
 	)
-	zeroconf = Zeroconf(InterfaceChoice.All , ip_version = IPVersion.V4Only)
+	zeroconf = Zeroconf(InterfaceChoice.All)
+	#logging.basicConfig(level=logging.DEBUG)
+	#logging.getLogger('zeroconf').setLevel(logging.DEBUG)
 	while (stop_threads == False):
-		try :
-			if(info.addresses != [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]):
-				zeroconf.unregister_service(info)
-				info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
-				zeroconf.register_service(info)
-			time.sleep(1)
-		except :
-			pass
+		if(info.addresses != [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]):
+			zeroconf.unregister_all_services()
+			info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
+			zeroconf.register_service(info)
+			print(socket.gethostbyname(socket.gethostname()))
+		time.sleep(1)
 	zeroconf.close()
 
 HardwareHandle = initialize_openhardwaremonitor()
@@ -118,7 +118,7 @@ class hwmon(Resource):
 	def render_GET(self,request):    
 		fetch_stats(HardwareHandle)
 		self.payload = json.dumps(data)
-		print(self.payload)
+		#print(self.payload)
 		return self
 
 class CoAPServer(CoAP):

@@ -6,6 +6,11 @@ MQTT topidcs
     *state    : 0(LCD_OFF) / 1(LCD_ON) / 3(toggle ping on/off) 
   *update   : channel sync for hardware version
 */
+/*
+For Bitmap converts :
+	image to hex converter : http://javl.github.io/image2cpp/
+	hex to base64 converter : https://base64.guru/converter/encode/hex
+*/
 #include <Wire.h>
 #include <base64.hpp>
 #include <DHT12.h>
