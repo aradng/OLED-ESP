@@ -125,13 +125,14 @@ void loop()
   {
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
-    display.drawString(display.getWidth() / 2, display.getHeight() / 2, "Searching");
-    display.display();
+    display.drawString(display.getWidth() / 2, display.getHeight() / 2 - 8, "Searching");
     if(MDNS.queryService("coap", "udp")) // Send out query for esp tcp services
     {
       ip = MDNS.IP(0);
       port = MDNS.port(0);
+      display.drawString(display.getWidth() / 2, display.getHeight() / 2 + 8, ip.toString());
     }
+    display.display();
   }
   if (millis() - mil >= 300)
   {
