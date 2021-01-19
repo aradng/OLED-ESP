@@ -85,24 +85,35 @@ stop_threads = False
 
 def mDNS():
 	#zerconf info
-	info = ServiceInfo(
-		"_coap._udp.local.",
-		"hwmon._coap._udp.local.",
-		addresses=[socket.inet_aton("0.0.0.0")],
-		port=5683,
-		server="hwmon.local.",
-		#host_ttl=0,
-		#other_ttl=0,
-	)
+	info = []
+	stream = os.popen('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f')
+	output = stream.read()
+	output = output[:-1]
+	for ip in output.split('\n'):
+		print(ip)
+		info.append(ServiceInfo(
+			"_coap._udp.local.",
+			"hwmon._coap._udp.local.",
+			addresses=[socket.inet_aton("0.0.0.0")],
+			port=5683,
+			server="hwmon.local.",
+			#host_ttl=0,
+			#other_ttl=0,
+		))
 	zeroconf = Zeroconf(InterfaceChoice.All)
 	#logging.basicConfig(level=logging.DEBUG)
 	#logging.getLogger('zeroconf').setLevel(logging.DEBUG)
 	while (stop_threads == False):
-		if(info.addresses != [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]):
-			zeroconf.unregister_all_services()
-			info.addresses=[socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
-			zeroconf.register_service(info)
-			print(socket.gethostbyname(socket.gethostname()))
+		stream = os.popen('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f')
+		output = stream.read()
+		output = output[:-1]
+		i = 0
+		for ip in output.split('\n'):
+			if(info[i].addresses != [socket.inet_aton(ip)]):
+				zeroconf.unregister_service(info[i])
+				info[i].addresses=[socket.inet_aton(ip)]
+				zeroconf.register_service(info[i])
+			i += 1
 		time.sleep(1)
 	zeroconf.close()
 
