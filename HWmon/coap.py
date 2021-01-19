@@ -6,6 +6,7 @@ import time
 import socket
 import logging
 import threading
+import subprocess
 from PySide2 import QtWidgets, QtGui
 from coapthon.server.coap import CoAP
 from coapthon.resources.resource import Resource
@@ -86,33 +87,36 @@ stop_threads = False
 def mDNS():
 	#zerconf info
 	info = []
-	stream = os.popen('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f')
-	output = stream.read()
+	zeroconf = Zeroconf(InterfaceChoice.All)
+	output = subprocess.check_output('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f',shell=True , stderr=subprocess.STDOUT,stdin=subprocess.PIPE).decode("utf-8")
+	#FUCK PYTHON
 	output = output[:-1]
+	i = 0
 	for ip in output.split('\n'):
+		i += 1
 		print(ip)
 		info.append(ServiceInfo(
 			"_coap._udp.local.",
-			"hwmon._coap._udp.local.",
-			addresses=[socket.inet_aton("0.0.0.0")],
+			"hwmon" + str(i) + "._coap._udp.local.",
+			addresses=[socket.inet_aton(ip)],
 			port=5683,
-			server="hwmon.local.",
+			server="hwmon" + str(i) + ".local.",
 			#host_ttl=0,
 			#other_ttl=0,
 		))
-	zeroconf = Zeroconf(InterfaceChoice.All)
+		zeroconf.register_service(info[-1])
 	#logging.basicConfig(level=logging.DEBUG)
 	#logging.getLogger('zeroconf').setLevel(logging.DEBUG)
 	while (stop_threads == False):
-		stream = os.popen('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f')
-		output = stream.read()
+		output = subprocess.check_output('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f',shell=True , stderr=subprocess.STDOUT,stdin=subprocess.PIPE).decode("utf-8")
+		#FUCK PYTHON TWICE
 		output = output[:-1]
 		i = 0
 		for ip in output.split('\n'):
 			if(info[i].addresses != [socket.inet_aton(ip)]):
-				zeroconf.unregister_service(info[i])
+				print(ip)
 				info[i].addresses=[socket.inet_aton(ip)]
-				zeroconf.register_service(info[i])
+				zeroconf.update_service(info[i])
 			i += 1
 		time.sleep(1)
 	zeroconf.close()

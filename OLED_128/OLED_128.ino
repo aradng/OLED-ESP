@@ -86,6 +86,7 @@ void update_finished() {
 }
 
 void setup() {
+  Serial.begin(115200);
   ESPhttpUpdate.onStart(update_started);
   ESPhttpUpdate.onProgress(update_progress);
   ESPhttpUpdate.onEnd(update_finished);
@@ -116,7 +117,7 @@ void setup() {
   coap.start();
 }
 
-long long int mil = 0 , count = 10;
+long long int mil = 0 , count = 10 , servercount = 0 , lastserver = 0;
 
 void loop() 
 {
@@ -126,21 +127,32 @@ void loop()
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
     display.drawString(display.getWidth() / 2, display.getHeight() / 2 - 8, "Searching");
+    servercount = MDNS.queryService("coap", "udp");
     if(MDNS.queryService("coap", "udp")) // Send out query for esp tcp services
     {
-      ip = MDNS.IP(0);
-      port = MDNS.port(0);
+      ip = MDNS.IP(lastserver);
+      port = MDNS.port(lastserver);
       display.drawString(display.getWidth() / 2, display.getHeight() / 2 + 8, ip.toString());
     }
     display.display();
   }
-  if (millis() - mil >= 300)
+  if (millis() - mil >= 250)
   {
     mil = millis();
-    coap.get(ip,port,"hwmon");
-    if(coap.loop())
-      count = 0; 
-    else  count++;
+    for(int i = 0 ; i < servercount ; i++)
+    {
+      ip = MDNS.IP(i);
+      port = MDNS.port(i);
+      coap.get(ip,port,"hwmon");
+      if(coap.loop())
+      {
+        count = 0; 
+        //Serial.println(MDNS.IP(i));
+        lastserver = i;
+        break;
+      }
+    }
+    count++;
   }
   if (WiFi.status() != WL_CONNECTED)                                                  //restart
     ESP.restart();
