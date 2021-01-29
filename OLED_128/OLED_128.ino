@@ -7,6 +7,12 @@
 #include <ESP8266WiFi.h>
 #include "SH1106Wire.h"
 
+#ifdef DEBUG_ESP_PORT
+#define DEBUG_MSG(...) DEBUG_ESP_PORT.println( __VA_ARGS__ )
+#else
+#define DEBUG_MSG(...)
+#endif
+
 SH1106Wire display(0x3c, D4, D3);    //d1 d2
 
 WiFiManager wifiManager;
@@ -57,6 +63,7 @@ void print(String payload)
   display.drawString(120, 12 , "%");
   display.drawString(120, 38 , "%");
   display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
   display.display();
 }
 
@@ -68,6 +75,7 @@ void callback_response(coapPacket &packet, IPAddress ip, int port) {
 }
 
 void update_started() {
+  DEBUG_MSG("\t\t\t\t\t---OTA Update---");
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
   display.drawString(display.getWidth() / 2, display.getHeight() / 2 - 20, "OTA Update");
@@ -110,49 +118,62 @@ void setup() {
   WiFi.hostname("OLED Display");
   wifiManager.setTimeout(180);
   wifiManager.autoConnect("OLED Display");
+  DEBUG_MSG("\t\t\t\t\t---Connected---");
   ArduinoOTA.setHostname("OLED Display");
   ArduinoOTA.begin();
   MDNS.begin("OLED Display");
+  WiFi.mode(WIFI_STA);
   coap.response(callback_response);
   coap.start();
 }
 
-long long int mil = 0 , count = 10 , servercount = 0 , lastserver = 0;
+long long int mil = 0 , count = 20 , servercount = 0;
 
 void loop() 
 {
   MDNS.update();
-  if(count >= 10)
+  if(count >= 20)
   {
     display.clear();
-    display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
     display.drawString(display.getWidth() / 2, display.getHeight() / 2 - 8, "Searching");
-    servercount = MDNS.queryService("coap", "udp");
-    if(MDNS.queryService("coap", "udp")) // Send out query for esp tcp services
-    {
-      ip = MDNS.IP(lastserver);
-      port = MDNS.port(lastserver);
-      display.drawString(display.getWidth() / 2, display.getHeight() / 2 + 8, ip.toString());
-    }
-    display.display();
-  }
-  if (millis() - mil >= 250)
-  {
-    mil = millis();
+    DEBUG_MSG("\t\t\t\t\t---Searching---");
+    servercount = MDNS.queryService("coap", "udp"); // Send out query for esp tcp services
     for(int i = 0 ; i < servercount ; i++)
     {
-      ip = MDNS.IP(i);
-      port = MDNS.port(i);
-      coap.get(ip,port,"hwmon");
-      if(coap.loop())
-      {
-        count = 0; 
-        //Serial.println(MDNS.IP(i));
-        lastserver = i;
-        break;
-      }
+        ip = MDNS.IP(i);
+        port = MDNS.port(i);
+        coap.get(ip,port,"hwmon");
+        DEBUG_MSG(MDNS.IP(i));
+        display.clear();
+        display.drawString(display.getWidth() / 2, display.getHeight() / 2, ip.toString());
+        display.display();
+        if(coap.loop())
+        {
+          DEBUG_MSG("\t\t\t\t\t---Found---");
+          count = 0;
+          break;
+        }
+        delay(500);
     }
-    count++;
+  }
+  if (millis() - mil >= 300)
+  {
+    mil = millis();
+    coap.get(ip,port,"hwmon");
+    if(!coap.loop())
+      count++;
+    else count = 0;
+    display.setColor(BLACK);
+    display.drawLine(107 , 64 , 128 , 64);
+    display.setColor(WHITE);
+    int tmpcnt = 0;
+    if(count > 50)
+      count = 20;
+    for(int j = 1 ; j <= (count + 9)/10 ; j++)
+      for(int i = 1 ; i <= 10 ; i++ , tmpcnt++)
+        if(tmpcnt <= count)
+          display.setPixel(107 + i*2 , 65 - j*2);
+    display.display();
   }
   if (WiFi.status() != WL_CONNECTED)                                                  //restart
     ESP.restart();
