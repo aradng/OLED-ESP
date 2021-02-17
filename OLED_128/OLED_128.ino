@@ -1,11 +1,11 @@
-#include "coap_client.h"
-#include <WiFiManager.h>
+#include "coap_client.h"                    //coapsimplelibrary by      Hirotaka(or https://github.com/automote/ESP-CoAP)
+#include "SH1106Wire.h"                     //esp8266 oled1306  by      thingpulse
+#include <WiFiManager.h>                    //wifimanager       by      tzapu
+#include <ArduinoJson.h>                    //arduinojson       by      benoit
 #include <ArduinoOTA.h>
-#include <ESP8266httpUpdate.h>
-#include <ArduinoJson.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WiFi.h>
-#include "SH1106Wire.h"
+
 
 #ifdef DEBUG_ESP_PORT
 #define DEBUG_MSG(...) DEBUG_ESP_PORT.println( __VA_ARGS__ )
