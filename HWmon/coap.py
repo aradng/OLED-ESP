@@ -67,7 +67,7 @@ def parse_sensor(sensor):
 		else:
 			return
 		if sensor.SensorType == sensortypes.index('Temperature') :
-			if sensor.Name == "GPU Core" :
+			if sensor.Name == "GPU Core" and sensor.Hardware.Name != None:
 				data['gpu_temp'] = int(sensor.Value)
 				data['gpu_name'] = sensor.Hardware.Name
 			if sensor.Name == "CPU Package" :
@@ -86,12 +86,15 @@ stop_threads = False
 
 def mDNS():
 	#zerconf info
+	#logging.basicConfig(level=logging.DEBUG)
+	#logging.getLogger('zeroconf').setLevel(logging.DEBUG)
 	info = []
 	zeroconf = Zeroconf(InterfaceChoice.All)
 	output = subprocess.check_output('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f',shell=True , stderr=subprocess.STDOUT,stdin=subprocess.PIPE).decode("utf-8")
 	#FUCK PYTHON
 	output = output[:-1]
 	i = 0
+	intn = len(output.split('\n'))
 	for ip in output.split('\n'):
 		i += 1
 		print(ip)
@@ -105,19 +108,41 @@ def mDNS():
 			#other_ttl=0,
 		))
 		zeroconf.register_service(info[-1])
-	#logging.basicConfig(level=logging.DEBUG)
-	#logging.getLogger('zeroconf').setLevel(logging.DEBUG)
+	print("service started")
 	while (stop_threads == False):
 		output = subprocess.check_output('for /f "usebackq tokens=2 delims=:" %f in (`ipconfig ^| findstr /c:"IPv4 Address"`) do @echo off && echo%f',shell=True , stderr=subprocess.STDOUT,stdin=subprocess.PIPE).decode("utf-8")
 		#FUCK PYTHON TWICE
 		output = output[:-1]
 		i = 0
-		for ip in output.split('\n'):
-			if(info[i].addresses != [socket.inet_aton(ip)]):
+		if(len(output.split('\n')) != intn):
+			for inf in info:
+				try:
+					zeroconf.unregister_service(inf)
+				except :
+					pass
+			zeroconf.unregister_all_services()
+			info.clear()
+			intn = len(output.split('\n'))
+			for ip in output.split('\n'):
+				i += 1
 				print(ip)
-				info[i].addresses=[socket.inet_aton(ip)]
-				zeroconf.update_service(info[i])
-			i += 1
+				info.append(ServiceInfo(
+					"_coap._udp.local.",
+					"hwmon" + str(i) + "._coap._udp.local.",
+					addresses=[socket.inet_aton(ip)],
+					port=5683,
+					server="hwmon" + str(i) + ".local.",
+					#host_ttl=0,
+					#other_ttl=0,
+				))
+				zeroconf.register_service(info[-1])
+		else :
+			for ip in output.split('\n'):
+				if(info[i].addresses != [socket.inet_aton(ip)]):
+					print(ip)
+					info[i].addresses=[socket.inet_aton(ip)]
+					zeroconf.update_service(info[i])
+				i += 1
 		time.sleep(1)
 	zeroconf.close()
 
@@ -143,11 +168,11 @@ class CoAPServer(CoAP):
 
 server = CoAPServer("0.0.0.0", 5683)
 
-def systray():
+def CoAP_server():
 	server.listen(10)
 
 threadmdns = threading.Thread(target=mDNS)
-threadcoap = threading.Thread(target=systray)
+threadcoap = threading.Thread(target=CoAP_server)
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 	def __init__(self, icon, parent=None):

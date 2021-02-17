@@ -1,6 +1,6 @@
 pythonnet  >=2.5.1
 pyserial   >=3.4
 serial	   >=0.0.97
-zeroconf   >=0.28.0
+zeroconf   >=0.28.8
 coapthon3  >=1.0.1
 paho-mqtt  >=1.5.0

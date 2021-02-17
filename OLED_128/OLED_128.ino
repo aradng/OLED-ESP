@@ -72,6 +72,7 @@ void callback_response(coapPacket &packet, IPAddress ip, int port) {
     memcpy(payload, packet.payload, packet.payloadlen);
     payload[packet.payloadlen] = NULL;
     print(payload);
+    DEBUG_MSG(payload);
 }
 
 void update_started() {
@@ -116,7 +117,7 @@ void setup() {
   display.display();
   
   WiFi.hostname("OLED Display");
-  wifiManager.setTimeout(180);
+  wifiManager.setTimeout(90);
   wifiManager.autoConnect("OLED Display");
   DEBUG_MSG("\t\t\t\t\t---Connected---");
   ArduinoOTA.setHostname("OLED Display");
@@ -167,7 +168,7 @@ void loop()
     display.drawLine(107 , 64 , 128 , 64);
     display.setColor(WHITE);
     int tmpcnt = 0;
-    if(count > 50)
+    if(count > 30)
       count = 20;
     for(int j = 1 ; j <= (count + 9)/10 ; j++)
       for(int i = 1 ; i <= 10 ; i++ , tmpcnt++)
