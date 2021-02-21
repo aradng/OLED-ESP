@@ -96,9 +96,6 @@ void update_finished() {
 
 void setup() {
   Serial.begin(115200);
-  ESPhttpUpdate.onStart(update_started);
-  ESPhttpUpdate.onProgress(update_progress);
-  ESPhttpUpdate.onEnd(update_finished);
   ArduinoOTA.onStart(update_started);
   ArduinoOTA.onProgress(update_progress);
   ArduinoOTA.onEnd(update_finished);
