@@ -94,7 +94,7 @@ def mDNS():
 	#FUCK PYTHON
 	output = output[:-1]
 	i = 0
-	intn = len(output.split('\n'))
+	infs = sorted(output.split('\n'))
 	for ip in output.split('\n'):
 		i += 1
 		print(ip)
@@ -114,7 +114,7 @@ def mDNS():
 		#FUCK PYTHON TWICE
 		output = output[:-1]
 		i = 0
-		if(len(output.split('\n')) != intn):
+		if(sorted(output.split('\n')) != infs):
 			for inf in info:
 				try:
 					zeroconf.unregister_service(inf)
@@ -122,7 +122,7 @@ def mDNS():
 					pass
 			zeroconf.unregister_all_services()
 			info.clear()
-			intn = len(output.split('\n'))
+			print("new interface")
 			for ip in output.split('\n'):
 				i += 1
 				print(ip)
@@ -136,13 +136,7 @@ def mDNS():
 					#other_ttl=0,
 				))
 				zeroconf.register_service(info[-1])
-		else :
-			for ip in output.split('\n'):
-				if(info[i].addresses != [socket.inet_aton(ip)]):
-					print(ip)
-					info[i].addresses=[socket.inet_aton(ip)]
-					zeroconf.update_service(info[i])
-				i += 1
+			infs = sorted(output.split('\n'))
 		time.sleep(1)
 	zeroconf.close()
 
