@@ -1,5 +1,5 @@
 #include "coap_client.h"                    //coapsimplelibrary by      Hirotaka(or https://github.com/automote/ESP-CoAP)
-#include "SH1106Wire.h"                     //esp8266 oled1306  by      thingpulse
+#include "SH1106Brzo.h"                     //esp8266 oled1306  by      thingpulse
 #include <WiFiManager.h>                    //wifimanager       by      tzapu
 #include <ArduinoJson.h>                    //arduinojson       by      benoit
 #include <ArduinoOTA.h>
@@ -13,7 +13,7 @@
 #define DEBUG_MSG(...)
 #endif
 
-SH1106Wire display(0x3c, D4, D3);    //d1 d2
+SH1106Brzo display(0x3c, 2 , 0);    //d1 d2
 
 WiFiManager wifiManager;
 WiFiClient espClient;
@@ -99,11 +99,11 @@ void setup() {
   ArduinoOTA.onStart(update_started);
   ArduinoOTA.onProgress(update_progress);
   ArduinoOTA.onEnd(update_finished);
-
-  pinMode(D2 , OUTPUT);
-  pinMode(D1 , OUTPUT);
-  digitalWrite(D2 , HIGH);
-  digitalWrite(D1 , LOW);
+ 
+  pinMode(4 , OUTPUT);
+  pinMode(5 , OUTPUT);
+  digitalWrite(4 , HIGH);
+  digitalWrite(5 , LOW);
   delay(5);
   display.init();
   display.clear();
@@ -127,7 +127,7 @@ void setup() {
 
 long long int mil = 0 , count = 20 , servercount = 0;
 
-void loop() 
+void loop()
 {
   MDNS.update();
   if(count >= 20)
