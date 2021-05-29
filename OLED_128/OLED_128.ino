@@ -45,10 +45,10 @@ void print(String payload)
   display.drawString(1, 11 , "CPU");
   display.drawString(1, 37 , "GPU");
   if(bigmode) display.setFont(ArialMT_Plain_24);
-  display.drawString(42, 11 , cpu_temp);
-  display.drawString(90, 11 , cpu_load);
-  display.drawString(42, 37 , gpu_temp);
-  display.drawString(90, 37 , gpu_load);
+  display.drawString(42 - bigmode*5, 11 - bigmode*3 , cpu_temp);
+  display.drawString(90 - bigmode*7, 11 - bigmode*3 , cpu_load);
+  display.drawString(42 - bigmode*5, 37 - bigmode*3 , gpu_temp);
+  display.drawString(90 - bigmode*7, 37 - bigmode*3 , gpu_load);
   display.setFont(ArialMT_Plain_10);
   if(!bigmode)
   {
@@ -58,10 +58,10 @@ void print(String payload)
     display.drawString(0 , 26 , gpu_name);
     display.drawString(80, 52 , "GB");
   }
-  display.drawString(72, 12 , "°C");
-  display.drawString(72, 38 , "°C");
-  display.drawString(120, 12 , "%");
-  display.drawString(120, 38 , "%");
+  display.drawString(72, 12 - bigmode*9 , "°C");
+  display.drawString(72, 38 - bigmode*9 , "°C");
+  display.drawString(120, 12 - bigmode*9 , "%");
+  display.drawString(120, 38 - bigmode*9 , "%");
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
   display.display();
@@ -72,6 +72,7 @@ void callback_response(coapPacket &packet, IPAddress ip, int port) {
     memcpy(payload, packet.payload, packet.payloadlen);
     payload[packet.payloadlen] = NULL;
     print(payload);
+    
     DEBUG_MSG(payload);
 }
 
