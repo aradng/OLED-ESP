@@ -31,11 +31,11 @@ struct crypto {
 };
 
 crypto cryptos[] = {
-    {"BTC"  , "https://api.cryptonator.com/api/ticker/btc-usd"  ,"",""},
-    {"ETH"  , "https://api.cryptonator.com/api/ticker/eth-usd"  ,"",""},
-    {"Doge" , "https://api.cryptonator.com/api/ticker/doge-usd" ,"",""},
-    {"ADA"  , "https://api.cryptonator.com/api/ticker/ada-usd"  ,"",""},
-    {"LTC"  , "https://api.cryptonator.com/api/ticker/ltc-usd"  ,"",""},
+    {"BTC"  , "https://api.cryptonator.com/api/ticker/btc-usdt"  ,"",""},
+    {"ETH"  , "https://api.cryptonator.com/api/ticker/eth-usdt"  ,"",""},
+    {"RVN"  , "https://api.cryptonator.com/api/ticker/rvn-usdt"  ,"",""},
+    {"ADA"  , "https://api.cryptonator.com/api/ticker/ada-usdt"  ,"",""},
+    {"Doge" , "https://api.cryptonator.com/api/ticker/doge-usdt" ,"",""},
 };
 const int maxCoins = sizeof(cryptos)/sizeof(cryptos[0]);
 
@@ -71,6 +71,7 @@ void setup() {
   delay(5);
   display.init();
   display.clear();
+  display.flipScreenVertically();
   display.setColor(WHITE);
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
@@ -79,9 +80,9 @@ void setup() {
   
   WiFi.hostname("Crypto Display");
   wifiManager.setTimeout(90);
-  wifiManager.autoConnect("OLED Display");
+  wifiManager.autoConnect("Crypto Display");
   DEBUG_MSG("\t\t\t\t\t---Connected---");
-  ArduinoOTA.setHostname("OLED Display");
+  ArduinoOTA.setHostname("Crypto Display");
   ArduinoOTA.begin();
   MDNS.begin("Crypto Display");
   WiFi.mode(WIFI_STA);
@@ -89,19 +90,23 @@ void setup() {
 
 int itt = 0;
 
+unsigned long long int mil = -30000;
+
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    fetchprice();
-    print();
+    if(millis() - mil > 30000)
+    {
+      fetchprice();
+      print();
+      itt++;
+      mil = millis();
+      //burn-in prevention
+      /*if(itt%2)
+        display.invertDisplay();
+      else display.normalDisplay();*/
+    }
   } else  ESP.restart();
   ArduinoOTA.handle();
-  Serial.println("____________________________________________________________________________________________________");
-  //burn-in prevention
-  /*if(itt%2)
-    display.invertDisplay();
-  else display.normalDisplay();*/
-  delay(30000);     //api update interval
-  itt++;
 }
 
 void fetchprice()
@@ -114,7 +119,9 @@ void fetchprice()
     if (https.begin(*client, cryptos[i].url)) 
     {
       int httpCode = https.GET();
-      DEBUG_MSG("HTTPS GET... code: %d\n", httpCode);
+      char buf[150];
+      printf(buf , "HTTPS GET... code: %d\n", httpCode);
+      DEBUG_MSG(buf);
       if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
         String payload = https.getString();
         float price = payload.substring(payload.indexOf("price")+8,payload.indexOf("volume")-3).toFloat();
@@ -131,11 +138,15 @@ void fetchprice()
         Serial.print(cryptos[i].price + "$\t\t");
         Serial.println(cryptos[i].change+ '%');
       } 
-      else
-        DEBUG_MSG("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      else{
+        char buf[150];
+        sprintf(buf , "[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        DEBUG_MSG(buf);
+      }
     }
     https.end();
   }
+  Serial.println("_______________________________________________________________________________________");
 }
 
 void print()
