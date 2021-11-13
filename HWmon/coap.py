@@ -20,7 +20,7 @@ openhardwaremonitor_sensortypes = ['Voltage','Clock','Temperature','Load','Fan',
 
 
 data = {
-	"bigmode"  : False ,
+	"bigmode"  : True ,
 	"gpu_name" : "",
 	"gpu_load" : 0 ,
 	"gpu_temp" : 0 ,
@@ -176,6 +176,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
 		big_mode = menu.addAction("Big Mode")
 		big_mode.setCheckable(True)
+		big_mode.toggle()
 		big_mode.triggered.connect(self.big_mode)
 
 		menu.addSeparator()

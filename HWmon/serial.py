@@ -10,7 +10,7 @@ openhardwaremonitor_hwtypes = ['Mainboard','SuperIO','CPU','RAM','GpuNvidia','Gp
 openhardwaremonitor_sensortypes = ['Voltage','Clock','Temperature','Load','Fan','Flow','Control','Level','Factor','Power','Data','SmallData']
 
 data = {
-    "bigmode"  : 0 ,
+    "bigmode"  : True ,
     "gpu_name" : "",
     "gpu_load" : 0 ,
     "gpu_temp" : 0 ,
