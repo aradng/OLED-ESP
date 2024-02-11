@@ -1,28 +1,50 @@
-#include "coap_client.h"                    //coapsimplelibrary by      Hirotaka(or https://github.com/automote/ESP-CoAP)
-#include "SH1106Brzo.h"                     //esp8266 oled1306  by      thingpulse
+#define COAP_BUF_MAX_SIZE 256
+#include <coap-simple.h>                    //coapsimplelibrary by      Hirotaka(or https://github.com/automote/ESP-CoAP)
 #include <WiFiManager.h>                    //wifimanager       by      tzapu
 #include <ArduinoJson.h>                    //arduinojson       by      benoit
 #include <ArduinoOTA.h>
-#include <ESP8266mDNS.h>
+#include <WiFiUdp.h>
+
+
+#if defined(ESP8266)
+
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include "SH1106Wire.h"                     //esp8266 oled1306  by      thingpulse
+SH1106Wire display(0x3c, 2 , 0);            //d1 d2
+String clientId = String(ESP.getChipId());
+#define mdns_update(...) MDNS.update()
+
+#elif defined(ESP32)
+
+#include <ESPmDNS.h>
+#include "SH1106Wire.h"                     //esp32 oled1306  by      thingpulse
+SH1106Wire display(0x3c, 22 , 21);
+String clientId = String(ESP.getEfuseMac());
+#define mdns_update(...)
+
+#endif
 
 
-#ifdef DEBUG_ESP_PORT
-#define DEBUG_MSG(...) DEBUG_ESP_PORT.println( __VA_ARGS__ )
+#if defined(DEBUG_ESP_PORT) && defined(ESP8266)
+#define DEBUG_MSG(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#elif defined(ESP32)
+#define DEBUG_MSG(...) log_i( __VA_ARGS__ )
 #else
 #define DEBUG_MSG(...)
 #endif
 
-SH1106Brzo display(0x3c, 2 , 0);    //d1 d2
-
+WiFiUDP udp;
+Coap coap(udp);
 WiFiManager wifiManager;
 WiFiClient espClient;
-coapClient coap;
+//coapClient coap;
 IPAddress ip(0,0,0,0);
-int port =5683;
+uint16_t port = 5683;
 
 const int HWver = 200814;                                             //Hardware version compared with a sub value
-String clientId = String(ESP.getChipId());
+long long int mil = 0 , count = 20 , servercount = 0;
+bool coap_connected = false;
 
 const size_t capacity = JSON_OBJECT_SIZE(8) + 250;
 DynamicJsonDocument doc(capacity);
@@ -67,13 +89,14 @@ void print(String payload)
   display.display();
 }
 
-void callback_response(coapPacket &packet, IPAddress ip, int port) {
+//void callback_response(coapPacket &packet, IPAddress ip, int port) {
+void callback_response(CoapPacket &packet, IPAddress ip, int port) {
+    coap_connected = true;
     char payload[packet.payloadlen + 1];
     memcpy(payload, packet.payload, packet.payloadlen);
     payload[packet.payloadlen] = NULL;
     print(payload);
-    
-    DEBUG_MSG(payload);
+    DEBUG_MSG("%s", payload);
 }
 
 void update_started() {
@@ -126,11 +149,9 @@ void setup() {
   coap.start();
 }
 
-long long int mil = 0 , count = 20 , servercount = 0;
-
 void loop()
 {
-  MDNS.update();
+  mdns_update();
   if(count >= 20)
   {
     display.clear();
@@ -142,26 +163,30 @@ void loop()
         ip = MDNS.IP(i);
         port = MDNS.port(i);
         coap.get(ip,port,"hwmon");
-        DEBUG_MSG(MDNS.IP(i));
+        DEBUG_MSG("%s:%d", ip.toString().c_str(), port);
         display.clear();
         display.drawString(display.getWidth() / 2, display.getHeight() / 2, ip.toString());
         display.display();
-        if(coap.loop())
+        coap.loop();
+        if(coap_connected)
         {
           DEBUG_MSG("\t\t\t\t\t---Found---");
-          count = 0;
           break;
         }
         delay(500);
+        coap_connected = false;
     }
   }
   if (millis() - mil >= 300)
   {
     mil = millis();
     coap.get(ip,port,"hwmon");
-    if(!coap.loop())
+//    coap.loop();
+    if(!coap_connected)
       count++;
-    else count = 0;
+    else
+      count = 0;
+    coap_connected = false;
     display.setColor(BLACK);
     display.drawLine(107 , 64 , 128 , 64);
     display.setColor(WHITE);
@@ -175,6 +200,10 @@ void loop()
     display.display();
   }
   if (WiFi.status() != WL_CONNECTED)                                                  //restart
+  {
+    DEBUG_MSG("disconnected from wifi restarting!");
     ESP.restart();
+  }
   ArduinoOTA.handle();
+  coap.loop();
 }
